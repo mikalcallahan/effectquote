@@ -5,43 +5,43 @@ import * as NodeFS from "node:fs";
 const homedir = require("os").homedir();
 
 const readFile = (filename: string) =>
-  Effect.async<Quotes, NodeJS.ErrnoException>((resume) => {
+  Effect.async<Quotes, { code: string; error: unknown }>((resume) => {
     NodeFS.readFile(filename, { encoding: "utf8" }, (error, data) => {
       if (error) {
-        resume(Effect.fail(error));
+        resume(Effect.fail({ code: error.code ?? "File read error", error }));
       } else {
-        resume(Effect.succeed(JSON.parse(data)));
+        resume(
+          Effect.try({
+            try: () => JSON.parse(data),
+            catch: (error) => ({ code: "PARSE_ERROR", error }),
+          }),
+        );
       }
     });
   });
-const program = readFile(
-  `${homedir}/Developer/desktop/ts-quote/src/quotes.json`,
-).pipe(
+const program = readFile(`${homedir}/.config/quotes/quotes.json`).pipe(
   flatMap((value) => {
     return Effect.try({
       try: () => Data.array(value.quotes),
-      catch: (error) => ({ code: "2343", error }),
+      catch: (error) => ({ code: "PARSE_ERROR", error }),
     });
-
-    //     const array = Data.array(value.quotes);
-    // const quote = Array.get(getRandomNumberInRange(0, value.quotes.length - 1))(
-    //   array,
-    // );
-    // console.log("quote i s", quote._tag);
   }),
-  tap((value) => console.log("value is - ", value)),
-  // map((value) =>
-  //   formatQuote(
-  //     value.quotes.at(getRandomNumberInRange(0, value.quotes.length - 1)),
-  //   ),
-  // ),
+  map((value) =>
+    formatQuote(value.at(getRandomNumberInRange(0, value.length - 1))),
+  ),
   tap((value) => Console.log(value)),
   catchAll((error) => {
-    return Console.log(error?.code);
+    if (error.code === "ENOENT") {
+      return Console.log("File not found");
+    } else if (error.code === "PARSE_ERROR") {
+      return Console.log("JSON not formatted correctly");
+    } else {
+      return Console.log(error?.code);
+    }
   }),
 );
 
-Effect.runPromise(program); // .catch((error) => console.log(error));
+Effect.runPromise(program);
 
 interface Quote {
   author: string;
