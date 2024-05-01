@@ -5,20 +5,23 @@ import * as NodeFS from "node:fs";
 const homedir = require("os").homedir();
 
 const readFile = (filename: string) =>
-  Effect.async<Quotes, { code: string; error: unknown }>((resume) => {
-    NodeFS.readFile(filename, { encoding: "utf8" }, (error, data) => {
-      if (error) {
-        resume(Effect.fail({ code: error.code ?? "File read error", error }));
-      } else {
-        resume(
-          Effect.try({
-            try: () => JSON.parse(data),
-            catch: (error) => ({ code: "PARSE_ERROR", error }),
-          }),
-        );
-      }
-    });
-  });
+  Effect.async<{ quotes: Array<Quote> }, { code: string; error: unknown }>(
+    (resume) => {
+      NodeFS.readFile(filename, { encoding: "utf8" }, (error, data) => {
+        if (error) {
+          resume(Effect.fail({ code: error.code ?? "File read error", error }));
+        } else {
+          resume(
+            Effect.try({
+              try: () => JSON.parse(data),
+              catch: (error) => ({ code: "PARSE_ERROR", error }),
+            }),
+          );
+        }
+      });
+    },
+  );
+
 const program = readFile(`${homedir}/.config/quotes/quotes.json`).pipe(
   flatMap((value) => {
     return Effect.try({
@@ -27,8 +30,13 @@ const program = readFile(`${homedir}/.config/quotes/quotes.json`).pipe(
     });
   }),
   map((value) =>
-    formatQuote(value.at(getRandomNumberInRange(0, value.length - 1))),
+    formatQuote(
+      Option.fromNullable(
+        value.at(getRandomNumberInRange(0, value.length - 1)),
+      ),
+    ),
   ),
+  map((value) => Option.getOrThrow(value)),
   tap((value) => Console.log(value)),
   catchAll((error) => {
     if (error.code === "ENOENT") {
@@ -55,5 +63,5 @@ interface Quotes {
 const getRandomNumberInRange = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
-const formatQuote = (value: Quote | undefined) =>
-  `${value?.text}\n- ${value?.author}`;
+const formatQuote = (quote: Option.Option<Quote>) =>
+  Option.map(quote, (value) => `${value.text}\n- ${value.author ?? "butt"}`);
