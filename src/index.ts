@@ -1,5 +1,4 @@
-import { Array, Console, Data, Effect, Option, pipe } from "effect";
-import { catchAll, flatMap, map, tap } from "effect/Effect";
+import { Array, Console, Data, Effect, Option } from "effect";
 import * as NodeFS from "node:fs";
 
 const homedir = require("os").homedir();
@@ -26,20 +25,20 @@ const program = readFile(`${homedir}/.config/quotes/quotes.json`).pipe(
   // const program = readFile(
   //   `${homedir}/Developer/desktop/effectquote/src/quotes-error.json`,
   // ).pipe(
-  flatMap((value) => {
+  Effect.flatMap((value) => {
     return Effect.try({
       try: () => Data.array(value.quotes),
       catch: (error) => ({ code: "PARSE_ERROR", error }),
     });
   }),
-  map((quotes) =>
+  Effect.map((quotes) =>
     formatQuote(
       Array.get(getRandomNumberInRange(0, quotes.length - 1))(quotes),
     ),
   ),
-  map((quote) => Option.getOrThrow(quote)),
-  tap((quote) => Console.log(quote)),
-  catchAll((error) => {
+  Effect.map((quote) => Option.getOrThrow(quote)),
+  Effect.tap((quote) => Console.log(quote)),
+  Effect.catchAll((error) => {
     if (error.code === "ENOENT") {
       return Console.log("Error: File not found");
     } else if (error.code === "PARSE_ERROR") {
