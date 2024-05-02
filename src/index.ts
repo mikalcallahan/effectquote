@@ -1,4 +1,4 @@
-import { Array, Console, Data, Effect } from "effect";
+import { Array, Console, Data, Effect, Option } from "effect";
 import { catchAll, flatMap, map, tap } from "effect/Effect";
 import * as NodeFS from "node:fs";
 
@@ -29,15 +29,13 @@ const program = readFile(`${homedir}/.config/quotes/quotes.json`).pipe(
       catch: (error) => ({ code: "PARSE_ERROR", error }),
     });
   }),
-  map((value) =>
+  map((quotes) =>
     formatQuote(
-      Option.fromNullable(
-        value.at(getRandomNumberInRange(0, value.length - 1)),
-      ),
+      Array.get(getRandomNumberInRange(0, quotes.length - 1))(quotes),
     ),
   ),
-  map((value) => Option.getOrThrow(value)),
-  tap((value) => Console.log(value)),
+  map((quote) => Option.getOrThrow(quote)),
+  tap((quote) => Console.log(quote)),
   catchAll((error) => {
     if (error.code === "ENOENT") {
       return Console.log("File not found");
@@ -54,10 +52,6 @@ Effect.runPromise(program);
 interface Quote {
   author: string;
   text: string;
-}
-
-interface Quotes {
-  quotes: Array<Quote>;
 }
 
 const getRandomNumberInRange = (min: number, max: number) =>
